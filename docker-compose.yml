@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  route-optimizer:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - OPENROUTESERVICE_API_KEY=${OPENROUTESERVICE_API_KEY}
+      - PORT=3000
+    env_file:
+      - .env
+    restart: unless-stopped
+    container_name: route-optimizer

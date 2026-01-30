@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Optimizer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a1a1a;
+            --secondary: #2a2a2a;
+            --accent: #6b7280;
+            --accent-dim: #4b5563;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --text: #e5e7eb;
+            --text-dim: #9ca3af;
+            --border: #374151;
+            --dark-blue: #1e40af;
+            --dark-blue-light: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #1f1f1f 50%, #2a2a2a 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 2rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(107, 114, 128, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: gridSlide 60s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes gridSlide {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(40px, 40px); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.02em;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+            animation: fadeIn 1s ease-out 0.2s both;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 450px 1fr;
+            gap: 2rem;
+            animation: fadeIn 1s ease-out 0.4s both;
+            align-items: start;
+        }
+
+        .panel.map-panel {
+            position: sticky;
+            top: 2rem;
+        }
+
+        .panel {
+            background: rgba(42, 42, 42, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .panel h2::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #6b7280, #4b5563);
+            border-radius: 2px;
+        }
+
+        .input-section {
+            margin-bottom: 1.5rem;
+        }
+
+        input[type="text"], textarea {
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            color: var(--text);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 200px;
+            line-height: 1.6;
+            width: 100%;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.1);
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+
+        label {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            background: none;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab:hover {
+            color: var(--text);
+            background: rgba(107, 114, 128, 0.1);
+        }
+
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .help-text {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .help-text::before {
+            content: 'ℹ';
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: rgba(107, 114, 128, 0.1);
+            border-radius: 50%;
+            font-size: 0.75rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+            border: none;
+            border-radius: 8px;
+            padding: 0.875rem 2rem;
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(107, 114, 128, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        .btn-secondary {
+            background: rgba(107, 114, 128, 0.2);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(107, 114, 128, 0.3);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-warning {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid var(--warning);
+            color: var(--warning);
+        }
+
+        .btn-warning:hover {
+            background: rgba(245, 158, 11, 0.3);
+            box-shadow: 0 8px 24px rgba(245, 158, 11, 0.2);
+        }
+
+        .addresses-list {
+            overflow-y: auto;
+            margin-top: 1rem;
+            padding-right: 0.5rem;
+        }
+
+        .addresses-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .addresses-list::-webkit-scrollbar-track {
+            background: rgba(26, 26, 26, 0.8);
+            border-radius: 3px;
+        }
+
+        .addresses-list::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 3px;
+        }
+
+        .address-item {
+            background: rgba(26, 26, 26, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            transition: all 0.3s ease;
+            animation: slideIn 0.3s ease-out;
+            cursor: move;
+        }
+
+        .address-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+
+        .address-item.drag-over {
+            border-color: var(--accent);
+            background: rgba(107, 114, 128, 0.2);
+        }
+
+        .address-item.locked {
+            cursor: default;
+            opacity: 0.8;
+        }
+
+        .drop-indicator {
+            height: 3px;
+            background: var(--dark-blue);
+            margin: 0.25rem 0;
+            border-radius: 2px;
+            box-shadow: 0 0 8px rgba(30, 64, 175, 0.5);
+            transition: all 0.2s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .address-item.valid {
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .address-item.invalid {
+            border-color: var(--error);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .address-number {
+            background: var(--accent);
+            color: var(--primary);
+            font-weight: 600;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .address-item.invalid .address-number {
+            background: var(--error);
+            color: white;
+        }
+
+        .address-content {
+            flex: 1;
+        }
+
+        .address-text {
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .address-error {
+            color: var(--error);
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .address-error::before {
+            content: '⚠';
+        }
+
+        .status-message {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .status-message.error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .status-message.success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .status-message.warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--warning);
+            color: var(--warning);
+        }
+
+        .status-icon {
+            font-size: 1.2rem;
+        }
+
+        .route-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .info-card {
+            background: rgba(26, 26, 26, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .info-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            transition: opacity 0.3s ease;
+        }
+
+        #map {
+            width: 100%;
+            height: 700px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: var(--accent);
+        }
+
+        .loading::after {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--accent);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Route Optimizer</h1>
+        <p class="subtitle">Plan the perfect route across multiple destinations</p>
+
+        <div class="main-grid">
+            <div>
+                <div class="panel">
+                    <h2>Route Planner</h2>
+                    
+                    <div class="tabs">
+                        <button class="tab active" id="inputTab">Input</button>
+                        <button class="tab" id="detailsTab">Route Details</button>
+                    </div>
+
+                    <div id="inputTabContent" class="tab-content active">
+                        <div class="input-section">
+                            <label style="display: block; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text);">Starting Address</label>
+                            <input type="text" id="startAddress" placeholder="e.g., 123 Main Street, Boston, MA" style="width: 100%; margin-bottom: 1rem;">
+                        </div>
+
+                        <div class="input-section">
+                            <label style="display: block; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text);">Ending Address</label>
+                            <input type="text" id="endAddress" placeholder="e.g., 456 Park Avenue, New York, NY" style="width: 100%; margin-bottom: 0.5rem;" disabled>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+                                <input type="checkbox" id="sameAsStart" style="width: auto; cursor: pointer;" checked>
+                                <label for="sameAsStart" style="font-size: 0.85rem; color: var(--text-dim); cursor: pointer; margin: 0;">Starting point is also the ending point</label>
+                            </div>
+                        </div>
+                        
+                        <div class="input-section">
+                            <label style="display: block; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text);">Stops Along the Way</label>
+                            <textarea id="addressInput" placeholder="Enter addresses (one per line):
+
+123 Main Street, Boston, MA
+456 Park Avenue, New York, NY
+789 Ocean Drive, Miami, FL
+101 Pike Place, Seattle, WA"></textarea>
+                            <div class="help-text">
+                                Enter each address on a new line
+                            </div>
+                        </div>
+
+                        <button class="btn btn-full" id="validateBtn">Validate & Optimize Route</button>
+                        
+                        <div id="statusContainer" style="margin-top: 1rem;"></div>
+                    </div>
+
+                    <div id="detailsTabContent" class="tab-content">
+                        <div id="revertButtonContainer" style="display: none; margin-bottom: 1rem;">
+                            <button class="btn btn-warning btn-full" id="revertBtn">
+                                ↺ Revert to Optimized Order
+                            </button>
+                        </div>
+                        
+                        <div id="addressesList" class="addresses-list"></div>
+                        
+                        <div id="routeInfo" style="display: none; margin-top: 1.5rem;">
+                            <div class="route-info">
+                                <div class="info-card">
+                                    <div class="info-label">Total Distance</div>
+                                    <div class="info-value" id="totalDistance">-</div>
+                                </div>
+                                <div class="info-card">
+                                    <div class="info-label">Total Duration</div>
+                                    <div class="info-value" id="totalDuration">-</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-secondary btn-full" id="exportBtn" style="margin-top: 1rem;">
+                                Export to CSV
+                            </button>
+                        </div>
+                        
+                        <div id="noRouteMessage" style="text-align: center; color: var(--text-dim); padding: 2rem;">
+                            No route optimized yet. Enter addresses in the Input tab and click "Validate & Optimize Route" to see details.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel map-panel">
+                <h2>Map View</h2>
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Leaflet library first -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Application script runs after Leaflet is loaded -->
+    <script>
+        window.addEventListener('load', function() {
+            // API base URL
+            const API_BASE = window.location.origin;
+
+            // Initialize map
+            const map = L.map('map').setView([39.8283, -98.5795], 4);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        let markers = [];
+        let routeLayer = null;
+        let validatedAddresses = [];
+        let originalOptimizedOrder = null;
+
+        const elements = {
+            startAddress: document.getElementById('startAddress'),
+            endAddress: document.getElementById('endAddress'),
+            sameAsStart: document.getElementById('sameAsStart'),
+            addressInput: document.getElementById('addressInput'),
+            validateBtn: document.getElementById('validateBtn'),
+            statusContainer: document.getElementById('statusContainer'),
+            addressesList: document.getElementById('addressesList'),
+            routeInfo: document.getElementById('routeInfo'),
+            totalDistance: document.getElementById('totalDistance'),
+            totalDuration: document.getElementById('totalDuration'),
+            exportBtn: document.getElementById('exportBtn'),
+            inputTab: document.getElementById('inputTab'),
+            detailsTab: document.getElementById('detailsTab'),
+            inputTabContent: document.getElementById('inputTabContent'),
+            detailsTabContent: document.getElementById('detailsTabContent'),
+            noRouteMessage: document.getElementById('noRouteMessage'),
+            revertBtn: document.getElementById('revertBtn'),
+            revertButtonContainer: document.getElementById('revertButtonContainer')
+        };
+
+        // Tab switching functionality
+        elements.inputTab.addEventListener('click', function() {
+            elements.inputTab.classList.add('active');
+            elements.detailsTab.classList.remove('active');
+            elements.inputTabContent.classList.add('active');
+            elements.detailsTabContent.classList.remove('active');
+        });
+
+        elements.detailsTab.addEventListener('click', function() {
+            elements.detailsTab.classList.add('active');
+            elements.inputTab.classList.remove('active');
+            elements.detailsTabContent.classList.add('active');
+            elements.inputTabContent.classList.remove('active');
+        });
+
+        // Function to switch to route details tab
+        function switchToDetailsTab() {
+            elements.detailsTab.click();
+        }
+
+        // Initialize end address field as disabled since checkbox is checked by default
+        elements.endAddress.style.opacity = '0.5';
+
+        // Handle checkbox for same start/end
+        elements.sameAsStart.addEventListener('change', function() {
+            if (this.checked) {
+                elements.endAddress.value = elements.startAddress.value;
+                elements.endAddress.disabled = true;
+                elements.endAddress.style.opacity = '0.5';
+            } else {
+                elements.endAddress.disabled = false;
+                elements.endAddress.style.opacity = '1';
+            }
+        });
+
+        // Update end address when start address changes (if checkbox is checked)
+        elements.startAddress.addEventListener('input', function() {
+            if (elements.sameAsStart.checked) {
+                elements.endAddress.value = this.value;
+            }
+        });
+
+        function showStatus(message, type = 'error') {
+            elements.statusContainer.innerHTML = `
+                <div class="status-message ${type}">
+                    <span class="status-icon">${type === 'error' ? '✕' : type === 'success' ? '✓' : '⚠'}</span>
+                    <span>${message}</span>
+                </div>
+            `;
+        }
+
+        function clearStatus() {
+            elements.statusContainer.innerHTML = '';
+        }
+
+        function clearMap() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            if (routeLayer) {
+                map.removeLayer(routeLayer);
+                routeLayer = null;
+            }
+        }
+
+        async function geocodeAddress(address) {
+            try {
+                const response = await fetch(`${API_BASE}/api/geocode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ address })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.features && data.features.length > 0) {
+                    const [lon, lat] = data.features[0].geometry.coordinates;
+                    return {
+                        valid: true,
+                        lat,
+                        lon,
+                        formattedAddress: data.features[0].properties.label
+                    };
+                } else {
+                    return {
+                        valid: false,
+                        error: 'Address not found'
+                    };
+                }
+            } catch (error) {
+                return {
+                    valid: false,
+                    error: error.message
+                };
+            }
+        }
+
+        async function optimizeRoute(intermediatePoints, startPoint, endPoint) {
+            try {
+                const response = await fetch(`${API_BASE}/api/optimize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        coordinates: intermediatePoints,
+                        startPoint: startPoint,
+                        endPoint: endPoint
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function getRouteGeometry(coordinates) {
+            try {
+                const response = await fetch(`${API_BASE}/api/route`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ coordinates })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        function displayAddresses(addresses) {
+            elements.addressesList.innerHTML = addresses.map((addr, index) => {
+                let label = '';
+                let draggableAttr = '';
+                let lockClass = '';
+                
+                if (addr.isStart) {
+                    label = '<span style="color: var(--success); font-weight: 600; font-size: 0.75rem; margin-left: 0.5rem;">START</span>';
+                    lockClass = 'locked';
+                } else if (addr.isEnd) {
+                    label = '<span style="color: var(--error); font-weight: 600; font-size: 0.75rem; margin-left: 0.5rem;">END</span>';
+                    lockClass = 'locked';
+                } else {
+                    draggableAttr = 'draggable="true"';
+                }
+                
+                return `
+                <div class="address-item ${addr.valid ? 'valid' : 'invalid'} ${lockClass}" data-index="${index}" ${draggableAttr}>
+                    <div class="address-number">${index + 1}</div>
+                    <div class="address-content">
+                        <div class="address-text">${addr.original}${label}</div>
+                        ${addr.valid ? `<div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 0.25rem;">${addr.formattedAddress}</div>` : ''}
+                        ${!addr.valid ? `<div class="address-error">${addr.error}</div>` : ''}
+                    </div>
+                </div>
+            `;
+            }).join('');
+            
+            // Add drag and drop event listeners
+            setupDragAndDrop();
+        }
+
+        function setupDragAndDrop() {
+            const addressItems = elements.addressesList.querySelectorAll('.address-item:not(.locked)');
+            let draggedElement = null;
+            let dropIndicator = null;
+
+            // Create drop indicator element
+            function createDropIndicator() {
+                const indicator = document.createElement('div');
+                indicator.className = 'drop-indicator';
+                return indicator;
+            }
+
+            // Remove drop indicator
+            function removeDropIndicator() {
+                if (dropIndicator && dropIndicator.parentNode) {
+                    dropIndicator.parentNode.removeChild(dropIndicator);
+                    dropIndicator = null;
+                }
+            }
+
+            // Show drop indicator at position
+            function showDropIndicator(targetElement, position) {
+                removeDropIndicator();
+                dropIndicator = createDropIndicator();
+                
+                if (position === 'before') {
+                    targetElement.parentNode.insertBefore(dropIndicator, targetElement);
+                } else {
+                    targetElement.parentNode.insertBefore(dropIndicator, targetElement.nextSibling);
+                }
+            }
+
+            addressItems.forEach(item => {
+                item.addEventListener('dragstart', function(e) {
+                    draggedElement = this;
+                    this.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                item.addEventListener('dragend', function(e) {
+                    this.classList.remove('dragging');
+                    
+                    // Remove all drag-over classes and drop indicator
+                    addressItems.forEach(item => item.classList.remove('drag-over'));
+                    removeDropIndicator();
+                });
+
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    
+                    if (draggedElement !== this) {
+                        // Determine if we should insert before or after
+                        const rect = this.getBoundingClientRect();
+                        const midpoint = rect.top + rect.height / 2;
+                        const mouseY = e.clientY;
+                        
+                        const position = mouseY < midpoint ? 'before' : 'after';
+                        showDropIndicator(this, position);
+                    }
+                });
+
+                item.addEventListener('dragleave', function(e) {
+                    // Only remove indicator if leaving the list area
+                    const relatedTarget = e.relatedTarget;
+                    if (!relatedTarget || !elements.addressesList.contains(relatedTarget)) {
+                        removeDropIndicator();
+                    }
+                });
+
+                item.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    removeDropIndicator();
+                    
+                    if (draggedElement !== this) {
+                        const draggedIndex = parseInt(draggedElement.dataset.index);
+                        const targetIndex = parseInt(this.dataset.index);
+                        
+                        // Determine if we're dropping before or after based on mouse position
+                        const rect = this.getBoundingClientRect();
+                        const midpoint = rect.top + rect.height / 2;
+                        const mouseY = e.clientY;
+                        const dropBefore = mouseY < midpoint;
+                        
+                        // Calculate the actual insertion index
+                        let insertIndex = targetIndex;
+                        if (!dropBefore) {
+                            insertIndex = targetIndex + 1;
+                        }
+                        
+                        // Adjust if dragging from before the target
+                        if (draggedIndex < insertIndex) {
+                            insertIndex--;
+                        }
+                        
+                        // Reorder the validatedAddresses array
+                        const draggedItem = validatedAddresses[draggedIndex];
+                        validatedAddresses.splice(draggedIndex, 1);
+                        validatedAddresses.splice(insertIndex, 0, draggedItem);
+                        
+                        // Show revert button since order was manually changed
+                        if (originalOptimizedOrder) {
+                            elements.revertButtonContainer.style.display = 'block';
+                        }
+                        
+                        // Redisplay addresses and update map
+                        displayAddresses(validatedAddresses);
+                        updateMapWithCurrentOrder();
+                    }
+                });
+            });
+        }
+
+        async function updateMapWithCurrentOrder() {
+            try {
+                clearMap();
+                
+                // Get route geometry with current order
+                const routeData = await getRouteGeometry(validatedAddresses.filter(a => a.valid));
+                
+                // Display route on map
+                const routeCoords = routeData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                routeLayer = L.polyline(routeCoords, {
+                    color: '#1e40af',
+                    weight: 4,
+                    opacity: 0.8
+                }).addTo(map);
+
+                // Add markers
+                validatedAddresses.forEach((coord, index) => {
+                    if (!coord.valid) return;
+                    
+                    const isStart = coord.isStart;
+                    const isEnd = coord.isEnd;
+                    const markerColor = (isStart || isEnd) ? '#1e40af' : '#6b7280';
+                    const markerColorDark = (isStart || isEnd) ? '#1e3a8a' : '#4b5563';
+                    
+                    const marker = L.marker([coord.lat, coord.lon], {
+                        icon: L.divIcon({
+                            className: 'custom-marker',
+                            html: `<div style="
+                                background: linear-gradient(135deg, ${markerColor}, ${markerColorDark});
+                                color: #ffffff;
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 50%;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-weight: 700;
+                                font-size: 14px;
+                                border: 3px solid #1a1a1a;
+                                box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
+                            ">${index + 1}</div>`,
+                            iconSize: [32, 32]
+                        })
+                    }).addTo(map);
+                    
+                    marker.bindPopup(`<b>Stop ${index + 1}</b><br>${coord.formattedAddress}`);
+                    markers.push(marker);
+                });
+
+                map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+                // Update distance and duration
+                const totalDistance = routeData.features[0].properties.summary.distance;
+                const totalDuration = routeData.features[0].properties.summary.duration;
+                elements.totalDistance.textContent = formatDistance(totalDistance);
+                elements.totalDuration.textContent = formatDuration(totalDuration);
+            } catch (error) {
+                console.error('Error updating map:', error);
+            }
+        }
+
+        // CSV Export functionality
+        function exportToCSV() {
+            if (!validatedAddresses || validatedAddresses.length === 0) {
+                showStatus('No route data to export', 'error');
+                return;
+            }
+
+            // Create CSV content
+            let csvContent = 'Stop Number,Type,Original Address,Formatted Address,Latitude,Longitude\n';
+            
+            validatedAddresses.forEach((addr, index) => {
+                let type = 'Stop';
+                if (addr.isStart) type = 'Start';
+                if (addr.isEnd) type = 'End';
+                
+                const row = [
+                    index + 1,
+                    type,
+                    `"${addr.original.replace(/"/g, '""')}"`,
+                    `"${addr.formattedAddress ? addr.formattedAddress.replace(/"/g, '""') : ''}"`,
+                    addr.lat || '',
+                    addr.lon || ''
+                ].join(',');
+                
+                csvContent += row + '\n';
+            });
+
+            // Add summary information
+            csvContent += '\n';
+            csvContent += 'Summary\n';
+            csvContent += `Total Distance,${elements.totalDistance.textContent}\n`;
+            csvContent += `Total Duration,${elements.totalDuration.textContent}\n`;
+
+            // Create blob and download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `route_export_${timestamp}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showStatus('Route exported successfully!', 'success');
+            setTimeout(clearStatus, 3000);
+        }
+
+        // Add export button event listener
+        elements.exportBtn.addEventListener('click', exportToCSV);
+
+        // Add revert button event listener
+        elements.revertBtn.addEventListener('click', function() {
+            if (originalOptimizedOrder) {
+                // Restore the original optimized order
+                validatedAddresses = JSON.parse(JSON.stringify(originalOptimizedOrder));
+                
+                // Hide the revert button
+                elements.revertButtonContainer.style.display = 'none';
+                
+                // Update display and map
+                displayAddresses(validatedAddresses);
+                updateMapWithCurrentOrder();
+                
+                // Show success message
+                showStatus('Route order restored to optimized version', 'success');
+                setTimeout(clearStatus, 3000);
+            }
+        });
+
+        function formatDistance(meters) {
+            const miles = meters / 1609.34;
+            if (miles < 0.1) {
+                const feet = meters * 3.28084;
+                return `${feet.toFixed(0)}ft`;
+            }
+            return `${miles.toFixed(1)}mi`;
+        }
+
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            }
+            return `${minutes}m`;
+        }
+
+        elements.validateBtn.addEventListener('click', async () => {
+            const startAddressText = elements.startAddress.value.trim();
+            const endAddressText = elements.endAddress.value.trim();
+            const addressText = elements.addressInput.value.trim();
+
+            // Validate required fields
+            if (!startAddressText) {
+                showStatus('Please enter a starting address', 'error');
+                return;
+            }
+
+            if (!endAddressText) {
+                showStatus('Please enter an ending address', 'error');
+                return;
+            }
+
+            // Get intermediate addresses
+            const intermediateAddresses = addressText.split('\n')
+                .map(a => a.trim())
+                .filter(a => a.length > 0);
+
+            elements.validateBtn.disabled = true;
+            elements.validateBtn.innerHTML = '<span class="loading">Validating addresses</span>';
+            clearStatus();
+            clearMap();
+            elements.routeInfo.style.display = 'none';
+
+            // Geocode all addresses (start + intermediate + end)
+            const allAddressTexts = [startAddressText, ...intermediateAddresses, endAddressText];
+            const geocodePromises = allAddressTexts.map(addr => 
+                geocodeAddress(addr).then(result => ({
+                    original: addr,
+                    ...result
+                }))
+            );
+
+            validatedAddresses = await Promise.all(geocodePromises);
+            
+            // Mark which is start and end
+            validatedAddresses[0].isStart = true;
+            validatedAddresses[validatedAddresses.length - 1].isEnd = true;
+            
+            displayAddresses(validatedAddresses);
+
+            const invalidAddresses = validatedAddresses.filter(a => !a.valid);
+            
+            if (invalidAddresses.length > 0) {
+                showStatus(`Found ${invalidAddresses.length} invalid address(es). Please correct them and try again.`, 'error');
+                elements.validateBtn.disabled = false;
+                elements.validateBtn.textContent = 'Validate & Optimize Route';
+                return;
+            }
+
+            // All addresses are valid, now optimize route
+            elements.validateBtn.innerHTML = '<span class="loading">Optimizing route</span>';
+
+            try {
+                // For optimization, we need at least 3 points (start, 1 stop, end)
+                if (validatedAddresses.length < 2) {
+                    showStatus('Please add at least one stop between start and end addresses', 'warning');
+                    elements.validateBtn.disabled = false;
+                    elements.validateBtn.textContent = 'Validate & Optimize Route';
+                    return;
+                }
+
+                // If start and end are the same, or if we only have start/end with no intermediate stops
+                const useOptimization = validatedAddresses.length > 2;
+
+                let orderedCoordinates;
+                
+                if (useOptimization) {
+                    // Extract start, intermediate, and end
+                    const startPoint = validatedAddresses[0];
+                    const endPoint = validatedAddresses[validatedAddresses.length - 1];
+                    const intermediatePoints = validatedAddresses.slice(1, -1);
+
+                    // Optimize only the intermediate points
+                    if (intermediatePoints.length > 0) {
+                        const optimizationResult = await optimizeRoute(intermediatePoints, startPoint, endPoint);
+                        
+                        if (optimizationResult.code !== 0) {
+                            throw new Error('Route optimization failed');
+                        }
+
+                        const route = optimizationResult.routes[0];
+                        const optimizedIntermediates = route.steps
+                            .filter(step => step.type === 'job')
+                            .map(step => {
+                                const jobIndex = step.job - 1;
+                                return intermediatePoints[jobIndex];
+                            });
+
+                        // Combine: start + optimized intermediates + end
+                        orderedCoordinates = [startPoint, ...optimizedIntermediates, endPoint];
+                    } else {
+                        // Just start and end
+                        orderedCoordinates = [startPoint, endPoint];
+                    }
+                } else {
+                    // Just start and end (same point if checkbox was checked)
+                    orderedCoordinates = validatedAddresses;
+                }
+
+                // Update validatedAddresses with the optimized order
+                validatedAddresses = orderedCoordinates;
+                
+                // Store the original optimized order
+                originalOptimizedOrder = JSON.parse(JSON.stringify(orderedCoordinates));
+                
+                // Hide revert button initially since we just optimized
+                elements.revertButtonContainer.style.display = 'none';
+
+                // Get route geometry
+                const routeData = await getRouteGeometry(orderedCoordinates);
+                
+                // Display addresses in optimized order
+                displayAddresses(validatedAddresses);
+                
+                // Display route on map
+                const routeCoords = routeData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                routeLayer = L.polyline(routeCoords, {
+                    color: '#1e40af',
+                    weight: 4,
+                    opacity: 0.8
+                }).addTo(map);
+
+                // Add markers
+                orderedCoordinates.forEach((coord, index) => {
+                    const isStart = coord.isStart;
+                    const isEnd = coord.isEnd;
+                    const markerColor = (isStart || isEnd) ? '#1e40af' : '#6b7280';
+                    const markerColorDark = (isStart || isEnd) ? '#1e3a8a' : '#4b5563';
+                    
+                    const marker = L.marker([coord.lat, coord.lon], {
+                        icon: L.divIcon({
+                            className: 'custom-marker',
+                            html: `<div style="
+                                background: linear-gradient(135deg, ${markerColor}, ${markerColorDark});
+                                color: #ffffff;
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 50%;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-weight: 700;
+                                font-size: 14px;
+                                border: 3px solid #1a1a1a;
+                                box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
+                            ">${index + 1}</div>`,
+                            iconSize: [32, 32]
+                        })
+                    }).addTo(map);
+                    
+                    marker.bindPopup(`<b>Stop ${index + 1}</b><br>${coord.formattedAddress}`);
+                    markers.push(marker);
+                });
+
+                map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+                // Display route info
+                const totalDistance = routeData.features[0].properties.summary.distance;
+                const totalDuration = routeData.features[0].properties.summary.duration;
+
+                elements.totalDistance.textContent = formatDistance(totalDistance);
+                elements.totalDuration.textContent = formatDuration(totalDuration);
+                elements.routeInfo.style.display = 'block';
+                elements.noRouteMessage.style.display = 'none';
+
+                // Auto-switch to route details tab
+                switchToDetailsTab();
+
+                showStatus(`Route optimized successfully! ${orderedCoordinates.length} stops in optimal order.`, 'success');
+
+            } catch (error) {
+                showStatus(`Route optimization failed: ${error.message}`, 'error');
+            }
+
+            elements.validateBtn.disabled = false;
+            elements.validateBtn.textContent = 'Validate & Optimize Route';
+        });
+        }); // End of window.load
+    </script>
+</body>
+</html>
