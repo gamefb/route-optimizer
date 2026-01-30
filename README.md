@@ -37,13 +37,13 @@ PORT=3000
 Build and start the application:
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 Or run in detached mode:
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 The application will be available at: http://localhost:3000
@@ -51,7 +51,7 @@ The application will be available at: http://localhost:3000
 ### 4. Stop the Application
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ## Alternative: Run with Docker Only
