@@ -6,7 +6,7 @@ A modern, dockerized route optimization application using OpenRouteService API. 
 
 - 🗺️ **Address Validation**: Automatically geocodes and validates all entered addresses
 - 🚀 **Route Optimization**: Calculates the most efficient route order using OpenRouteService
-- 📍 **Interactive Map**: Beautiful dark-themed map with numbered markers and route visualization
+- 📍 **Interactive Map**: Beautiful light-themed map with numbered markers and route visualization
 - 📊 **Route Statistics**: Displays total distance and estimated duration
 - 🐳 **Dockerized**: Easy deployment with Docker and Docker Compose
 - 🔐 **Secure**: API key stored in environment variables, never exposed to the frontend
@@ -24,12 +24,6 @@ Sign up for a free OpenRouteService API key at:
 https://openrouteservice.org/dev/#/signup
 
 ### 2. Configure Environment
-
-Copy the `.env.example` file to `.env`:
-
-```bash
-cp .env.example .env
-```
 
 Edit the `.env` file and add your OpenRouteService API key:
 
