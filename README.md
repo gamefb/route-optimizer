@@ -1,3 +1,7 @@
+# Disclosure
+
+Initial version is created through AI coding. Code is provided as-is with no warranty. Do not expose this service over the public internet. 
+
 # Route Optimizer
 
 A modern, dockerized route optimization application using OpenRouteService API. Plan the perfect route across multiple destinations with automatic address validation and route optimization.
