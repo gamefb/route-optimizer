@@ -547,6 +547,7 @@
                     <div class="tabs">
                         <button class="tab active" id="inputTab">Input</button>
                         <button class="tab" id="detailsTab">Route Details</button>
+                        <button class="tab" id="clientOrderTab">Client Order</button>
                     </div>
 
                     <div id="inputTabContent" class="tab-content active">
@@ -611,6 +612,14 @@
                             No route optimized yet. Enter addresses in the Input tab and click "Validate & Optimize Route" to see details.
                         </div>
                     </div>
+
+                    <div id="clientOrderTabContent" class="tab-content">
+                        <div id="clientOrderList" class="addresses-list"></div>
+                        
+                        <div id="noClientOrderMessage" style="text-align: center; color: var(--text-dim); padding: 2rem;">
+                            No addresses entered yet. Enter addresses in the Input tab and click "Validate & Optimize Route" to see the client order.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -657,10 +666,14 @@
             totalDuration: document.getElementById('totalDuration'),
             exportBtn: document.getElementById('exportBtn'),
             inputTab: document.getElementById('inputTab'),
+            clientOrderTab: document.getElementById('clientOrderTab'),
             detailsTab: document.getElementById('detailsTab'),
             inputTabContent: document.getElementById('inputTabContent'),
+            clientOrderTabContent: document.getElementById('clientOrderTabContent'),
             detailsTabContent: document.getElementById('detailsTabContent'),
             noRouteMessage: document.getElementById('noRouteMessage'),
+            clientOrderList: document.getElementById('clientOrderList'),
+            noClientOrderMessage: document.getElementById('noClientOrderMessage'),
             revertBtn: document.getElementById('revertBtn'),
             revertButtonContainer: document.getElementById('revertButtonContainer')
         };
@@ -668,16 +681,29 @@
         // Tab switching functionality
         elements.inputTab.addEventListener('click', function() {
             elements.inputTab.classList.add('active');
+            elements.clientOrderTab.classList.remove('active');
             elements.detailsTab.classList.remove('active');
             elements.inputTabContent.classList.add('active');
+            elements.clientOrderTabContent.classList.remove('active');
+            elements.detailsTabContent.classList.remove('active');
+        });
+
+        elements.clientOrderTab.addEventListener('click', function() {
+            elements.clientOrderTab.classList.add('active');
+            elements.inputTab.classList.remove('active');
+            elements.detailsTab.classList.remove('active');
+            elements.clientOrderTabContent.classList.add('active');
+            elements.inputTabContent.classList.remove('active');
             elements.detailsTabContent.classList.remove('active');
         });
 
         elements.detailsTab.addEventListener('click', function() {
             elements.detailsTab.classList.add('active');
             elements.inputTab.classList.remove('active');
+            elements.clientOrderTab.classList.remove('active');
             elements.detailsTabContent.classList.add('active');
             elements.inputTabContent.classList.remove('active');
+            elements.clientOrderTabContent.classList.remove('active');
         });
 
         // Function to switch to route details tab
@@ -831,7 +857,7 @@
                 
                 return `
                 <div class="address-item ${addr.valid ? 'valid' : 'invalid'} ${lockClass}" data-index="${index}" ${draggableAttr}>
-                    <div class="address-number">${index + 1}</div>
+                    <div class="address-number">${index}</div>
                     <div class="address-content">
                         <div class="address-text">${addr.original}${label}</div>
                         ${addr.valid ? `<div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 0.25rem;">${addr.formattedAddress}</div>` : ''}
@@ -843,6 +869,46 @@
             
             // Add drag and drop event listeners
             setupDragAndDrop();
+        }
+
+        function displayClientOrder(addresses) {
+            // Sort by original order
+            const sortedAddresses = [...addresses].sort((a, b) => a.originalOrder - b.originalOrder);
+            
+            // Create a map of addresses to their route details index (stop number)
+            const addressToStopNumber = new Map();
+            addresses.forEach((addr, index) => {
+                addressToStopNumber.set(addr.original + addr.lat + addr.lon, index);
+            });
+            
+            elements.clientOrderList.innerHTML = sortedAddresses.map((addr) => {
+                let label = '';
+                
+                if (addr.isStart) {
+                    label = '<span style="color: var(--success); font-weight: 600; font-size: 0.75rem; margin-left: 0.5rem;">START</span>';
+                } else if (addr.isEnd) {
+                    label = '<span style="color: var(--error); font-weight: 600; font-size: 0.75rem; margin-left: 0.5rem;">END</span>';
+                }
+                
+                // Get the stop number from route details
+                const stopNumber = addressToStopNumber.get(addr.original + addr.lat + addr.lon);
+                
+                return `
+                <div class="address-item ${addr.valid ? 'valid' : 'invalid'}" style="cursor: default;">
+                    <div class="address-number">${stopNumber}</div>
+                    <div class="address-content">
+                        <div class="address-text">${addr.original}${label}</div>
+                        ${addr.valid ? `<div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 0.25rem;">${addr.formattedAddress}</div>` : ''}
+                        ${!addr.valid ? `<div class="address-error">${addr.error}</div>` : ''}
+                    </div>
+                </div>
+            `;
+            }).join('');
+            
+            // Hide no message, show list
+            if (sortedAddresses.length > 0) {
+                elements.noClientOrderMessage.style.display = 'none';
+            }
         }
 
         function setupDragAndDrop() {
@@ -998,12 +1064,12 @@
                                 font-size: 14px;
                                 border: 3px solid #1a1a1a;
                                 box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
-                            ">${index + 1}</div>`,
+                            ">${index}</div>`,
                             iconSize: [32, 32]
                         })
                     }).addTo(map);
                     
-                    marker.bindPopup(`<b>Stop ${index + 1}</b><br>${coord.formattedAddress}`);
+                    marker.bindPopup(`<b>Stop ${index}</b><br>${coord.formattedAddress}`);
                     markers.push(marker);
                 });
 
@@ -1027,15 +1093,18 @@
             }
 
             // Create CSV content
-            let csvContent = 'Stop Number,Type,Original Address,Formatted Address,Latitude,Longitude\n';
+            let csvContent = 'Original Order,Stop Number,Type,Original Address,Formatted Address,Latitude,Longitude\n';
             
             validatedAddresses.forEach((addr, index) => {
                 let type = 'Stop';
                 if (addr.isStart) type = 'Start';
                 if (addr.isEnd) type = 'End';
                 
+                const originalOrder = addr.originalOrder !== undefined ? addr.originalOrder : '';
+                
                 const row = [
-                    index + 1,
+                    originalOrder,
+                    index,
                     type,
                     `"${addr.original.replace(/"/g, '""')}"`,
                     `"${addr.formattedAddress ? addr.formattedAddress.replace(/"/g, '""') : ''}"`,
@@ -1084,6 +1153,7 @@
                 
                 // Update display and map
                 displayAddresses(validatedAddresses);
+                displayClientOrder(validatedAddresses);
                 updateMapWithCurrentOrder();
                 
                 // Show success message
@@ -1129,7 +1199,8 @@
             // Get intermediate addresses
             const intermediateAddresses = addressText.split('\n')
                 .map(a => a.trim())
-                .filter(a => a.length > 0);
+                .filter(a => a.length > 0)
+                .map(a => a.startsWith('-> ') ? a.substring(3) : a); // Remove arrow if present
 
             elements.validateBtn.disabled = true;
             elements.validateBtn.innerHTML = '<span class="loading">Validating addresses</span>';
@@ -1137,11 +1208,16 @@
             clearMap();
             elements.routeInfo.style.display = 'none';
 
+            // Strip arrows from start and end addresses too
+            const cleanStartAddress = startAddressText.startsWith('-> ') ? startAddressText.substring(3) : startAddressText;
+            const cleanEndAddress = endAddressText.startsWith('-> ') ? endAddressText.substring(3) : endAddressText;
+
             // Geocode all addresses (start + intermediate + end)
-            const allAddressTexts = [startAddressText, ...intermediateAddresses, endAddressText];
-            const geocodePromises = allAddressTexts.map(addr => 
+            const allAddressTexts = [cleanStartAddress, ...intermediateAddresses, cleanEndAddress];
+            const geocodePromises = allAddressTexts.map((addr, index) => 
                 geocodeAddress(addr).then(result => ({
                     original: addr,
+                    originalOrder: index, // Store original entry order
                     ...result
                 }))
             );
@@ -1157,6 +1233,49 @@
             const invalidAddresses = validatedAddresses.filter(a => !a.valid);
             
             if (invalidAddresses.length > 0) {
+                // Mark invalid addresses in the input field
+                const startAddressText = elements.startAddress.value.trim();
+                const endAddressText = elements.endAddress.value.trim();
+                const intermediateText = elements.addressInput.value;
+                
+                // Update intermediate addresses with arrows
+                const intermediateLines = intermediateText.split('\n');
+                const updatedLines = intermediateLines.map(line => {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) return line;
+                    
+                    // Check if this address is invalid
+                    const isInvalid = validatedAddresses.some(addr => 
+                        !addr.valid && addr.original === trimmedLine && !addr.isStart && !addr.isEnd
+                    );
+                    
+                    // Add arrow if invalid and not already present
+                    if (isInvalid && !line.startsWith('->')) {
+                        return '-> ' + line;
+                    }
+                    return line;
+                });
+                
+                elements.addressInput.value = updatedLines.join('\n');
+                
+                // Mark start address if invalid
+                const startInvalid = validatedAddresses.some(addr => 
+                    !addr.valid && addr.isStart
+                );
+                if (startInvalid && !elements.startAddress.value.startsWith('->')) {
+                    elements.startAddress.value = '-> ' + elements.startAddress.value;
+                }
+                
+                // Mark end address if invalid (and not same as start)
+                if (!elements.sameAsStart.checked) {
+                    const endInvalid = validatedAddresses.some(addr => 
+                        !addr.valid && addr.isEnd
+                    );
+                    if (endInvalid && !elements.endAddress.value.startsWith('->')) {
+                        elements.endAddress.value = '-> ' + elements.endAddress.value;
+                    }
+                }
+                
                 showStatus(`Found ${invalidAddresses.length} invalid address(es). Please correct them and try again.`, 'error');
                 elements.validateBtn.disabled = false;
                 elements.validateBtn.textContent = 'Validate & Optimize Route';
@@ -1222,11 +1341,22 @@
                 // Hide revert button initially since we just optimized
                 elements.revertButtonContainer.style.display = 'none';
 
+                // Clear any arrows from the input fields on success
+                elements.startAddress.value = cleanStartAddress;
+                elements.endAddress.value = cleanEndAddress;
+                const cleanedLines = elements.addressInput.value.split('\n').map(line => {
+                    return line.startsWith('-> ') ? line.substring(3) : line;
+                });
+                elements.addressInput.value = cleanedLines.join('\n');
+
                 // Get route geometry
                 const routeData = await getRouteGeometry(orderedCoordinates);
                 
                 // Display addresses in optimized order
                 displayAddresses(validatedAddresses);
+                
+                // Display client order (original entry order)
+                displayClientOrder(validatedAddresses);
                 
                 // Display route on map
                 const routeCoords = routeData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
@@ -1259,12 +1389,12 @@
                                 font-size: 14px;
                                 border: 3px solid #1a1a1a;
                                 box-shadow: 0 4px 12px rgba(30, 64, 175, 0.4);
-                            ">${index + 1}</div>`,
+                            ">${index}</div>`,
                             iconSize: [32, 32]
                         })
                     }).addTo(map);
                     
-                    marker.bindPopup(`<b>Stop ${index + 1}</b><br>${coord.formattedAddress}`);
+                    marker.bindPopup(`<b>Stop ${index}</b><br>${coord.formattedAddress}`);
                     markers.push(marker);
                 });
 
